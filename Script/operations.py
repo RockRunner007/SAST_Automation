@@ -54,7 +54,7 @@ def get_access_token():
         sys.exit(1)
 
 def get_dr_status(token, requestid):
-    status = process_api_request(f'https://q2ebanking.checkmarx.net/cxrestapi/sast/dataRetention/{requestid}/status', 'GET', _set_headers(api_key=token))
+    status = process_api_request(f'https://{SAST_URL}/cxrestapi/sast/dataRetention/{requestid}/status', 'GET', _set_headers(api_key=token))
     
     if (status['stage']['value'] == 'Finished'): 
         return False
