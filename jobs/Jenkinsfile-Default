@@ -1,0 +1,34 @@
+pipeline {
+    agent { label "orca-aws-m" }
+    parameters {
+        choice(name: 'CHECKMARX_PROJECT_NAME', choices: ['{Projects}'])
+        choice(name: 'CHECKMARX_TEAM_NAME', choices: ['{Teams}'])
+        string(name: 'REPORT_RECIPIENTS', defaultValue: '{email}')
+    }
+    stages {
+        stage("Generate Report") {
+            steps {
+                cleanWs()
+                checkout scm
+                sh '/usr/local/bin/pip3 install pipenv'
+                sh "/usr/local/bin/pipenv --python /usr/local/bin/python3 install"
+                withCredentials([usernamePassword(credentialsId: '4c53402c-8647-45f9-8c1a-32d7b51d03e9', passwordVariable: 'CHECKMARX_PASSWORD', usernameVariable: 'CHECKMARX_USERNAME')]) {
+                    withCredentials([string(credentialsId: 'checkmarx_client_secret', variable: 'checkmarx_client_secret')]) {
+                        sh "/usr/local/bin/pipenv run python3 report.py"
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                def stats = readJSON file: 'stats.json', text: ''
+                emailext attachmentsPattern: '*.pdf', body: "The most recent Checkmarx static scan of ${CHECKMARX_PROJECT_NAME} is attached.", replyTo: '{Email}', subject: "${CHECKMARX_PROJECT_NAME} Static Scan Report.  High Severity Count: ${stats.highSeverity}", to: "${REPORT_RECIPIENTS}"
+            }
+        }
+        failure {
+            mail to: '{Email}', subject: "Build Failure: ${JOB_BASE_NAME}", body: "Failed to generate checkmarx report.  ${BUILD_URL}"
+        }
+    }
+}
